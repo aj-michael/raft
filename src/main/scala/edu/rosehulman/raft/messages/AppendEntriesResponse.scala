@@ -1,6 +1,8 @@
 package edu.rosehulman.raft.messages
 
+import edu.rosehulman.raft.State.Term
+
 case class AppendEntriesResponse(
-  term: Int,
+  term: Term,
   success: Boolean
 )
