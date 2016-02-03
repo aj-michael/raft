@@ -3,8 +3,9 @@ package edu.rosehulman.raft
 sealed trait State {
   import State.CandidateId
   import State.Index
+  import State.Term
 
-  val currentTerm: Int
+  val currentTerm: Term
   val votedFor: Option[CandidateId]
   val log: Map[Index, LogEntry]
   val commitIndex: Index
@@ -14,30 +15,31 @@ sealed trait State {
 object State {
   type CandidateId = Int
   type Index = Int
+  type Term = Int
 
   final case class Follower(
-    currentTerm: Int,
-    votedFor: Option[Int],
+    currentTerm: Term,
+    votedFor: Option[CandidateId],
     log: Map[Index, LogEntry],
-    commitIndex: Int,
-    lastApplied: Int
+    commitIndex: Index,
+    lastApplied: Index
   ) extends State {
-    def this() = this(0, Option.empty, Array(), 0, 0)
+    def this() = this(0, Option.empty, Map(), 0, 0)
   }
 
   final case class Candidate(
-    currentTerm: Int,
-    votedFor: Option[Int],
-    log: Array[LogEntry],
-    commitIndex: Int,
-    lastApplied: Int
+    currentTerm: Term,
+    votedFor: Option[CandidateId],
+    log: Map[Index, LogEntry],
+    commitIndex: Index,
+    lastApplied: Index
   ) extends State
 
   final case class Leader(
-    currentTerm: Int,
-    votedFor: Int,
-    log: Array[LogEntry],
-    commitIndex: Int,
-    lastApplied: Int
+    currentTerm: Term,
+    votedFor: Option[CandidateId],
+    log: Map[Index, LogEntry],
+    commitIndex: Index,
+    lastApplied: Index
   ) extends State
 }

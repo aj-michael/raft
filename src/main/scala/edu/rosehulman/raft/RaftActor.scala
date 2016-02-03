@@ -1,8 +1,12 @@
 package edu.rosehulman.raft
 
-import akka.actor.{Actor, FSM}
+import akka.actor.{Props, Actor, FSM}
 import edu.rosehulman.raft.messages.{RequestVoteResponse, RequestVoteRequest, AppendEntriesRequest}
 import scala.concurrent.duration._
+
+object RaftActor {
+  def props(): Props = Props(new RaftActor)
+}
 
 class RaftActor() extends Actor with FSM[Role, State] {
 
