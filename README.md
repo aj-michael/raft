@@ -6,4 +6,4 @@ The lab descriptions and instructions are in [LAB.md](LAB.md).
 
 ## License
 
-[MIT](https://github.com/aj-michael/raft/blob/master/LICENSE)
+[MIT](LICENSE)
