@@ -42,9 +42,9 @@ class RaftActor(clusterSize: Int) extends Actor with LoggingFSM[Role, State] {
   when(Role.Follower) {
     case Event(StateTimeout, s: Follower) =>
       goto(Role.Candidate) using Candidate.create(s) forMax electionTimeout
-    case Event(AppendEntriesRequest(term, leaderId, prevLogIndex, prevLogTerm, entries), s: Follower) =>
+    case Event(AppendEntriesRequest(term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit), s: Follower) =>
       sender ! AppendEntriesResponse(s.currentTerm, true)
-      stay using s.addEntry(entries.lastOption) forMax electionTimeout
+      stay using s.addEntry(entries.lastOption, Option(leaderId)) forMax electionTimeout
     case Event(RequestVoteRequest(term, candidateId, lastLogIndex, lastLogTerm), s: Follower) =>
       if (term >= s.currentTerm && s.votedFor.isEmpty) {
         log.info("Voting for " + candidateId + " in term " + term)
@@ -76,9 +76,9 @@ class RaftActor(clusterSize: Int) extends Actor with LoggingFSM[Role, State] {
         sender ! RequestVoteResponse(term, false)
         stay forMax electionTimeout
       }
-    case Event(AppendEntriesRequest(term, leaderId, prevLogIndex, prevLogTerm, entries), s: Candidate) =>
+    case Event(AppendEntriesRequest(term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit), s: Candidate) =>
       if (term > s.currentTerm) {
-        goto(Role.Follower) using s.addEntry(entries.last) forMax electionTimeout
+        goto(Role.Follower) using s.addEntry(entries.lastOption, Option(leaderId)) forMax electionTimeout
       } else {
         stay forMax electionTimeout
       }
@@ -88,19 +88,29 @@ class RaftActor(clusterSize: Int) extends Actor with LoggingFSM[Role, State] {
     case Event(RequestVoteRequest(term, candidateId, lastLogIndex, lastLogTerm), s: Leader) =>
       stay using s
     case Event(StateTimeout, s: Leader) =>
-      s.peers.foreach(actorFor(_) ! AppendEntriesRequest(s.currentTerm, s.id, s.lastApplied, s.currentTerm, Array()))
+      s.peers.foreach(actorFor(_) ! AppendEntriesRequest(s.currentTerm, s.id, s.lastApplied, s.currentTerm, Array(), s.commitIndex))
       stay
     case Event(AppendEntriesResponse(term, success), s: Leader) =>
       stay
-    case Event(AppendEntriesRequest(term, leaderId, prevLogIndex, prevLogTerm, entries), s: Candidate) =>
+    case Event(AppendEntriesRequest(term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit), s: Candidate) =>
       if (term > s.currentTerm) {
-        goto(Role.Follower) using s.addEntry(entries.last) forMax electionTimeout
+        goto(Role.Follower) using s.addEntry(entries.lastOption, Option(leaderId)) forMax electionTimeout
       } else {
         stay
       }
+    case Event(CommandRequest(entry), s: Leader) =>
+      val (result, newData) = entry(s.data)
+      log.info("Applied " + entry + ", data is now " + newData)
+      sender ! CommandResponse(result)
+      stay
   }
 
   whenUnhandled {
+    case Event(CommandRequest(entry), s: RaftState) =>
+      log.info("Nonleader received command request, sending failure with redirect")
+      log.warning(sender.toString)
+      sender ! FailedCommandResponse(s.leaderId)
+      stay
     case Event(e, s) =>
       log.warning("Received unhandled request {}", e)
       stay
@@ -118,7 +128,7 @@ class RaftActor(clusterSize: Int) extends Actor with LoggingFSM[Role, State] {
 
   }
 
-  def actorFor(address: Address) = {
+  private def actorFor(address: Address) = {
     context.actorSelection(RootActorPath(address) / "user" / "worker")
   }
 

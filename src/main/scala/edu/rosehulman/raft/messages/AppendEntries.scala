@@ -7,5 +7,11 @@ case class AppendEntriesRequest(
   leaderId: RaftId,
   prevLogIndex: Index,
   prevLogTerm: Index,
-  entries: Array[LogEntry]
+  entries: Array[LogEntry],
+  leaderCommit: Index
+)
+
+case class AppendEntriesResponse(
+  term: Term,
+  success: Boolean
 )

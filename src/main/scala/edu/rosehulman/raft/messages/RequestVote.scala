@@ -8,3 +8,9 @@ final case class RequestVoteRequest(
   lastLogIndex: Index,
   lastLogTerm: Index
 )
+
+final case class RequestVoteResponse(
+  term: Term,
+  voteGranted: Boolean
+)
+
