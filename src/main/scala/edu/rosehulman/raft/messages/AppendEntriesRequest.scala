@@ -1,13 +1,11 @@
 package edu.rosehulman.raft.messages
 
-import edu.rosehulman.raft.State.CandidateId
-import edu.rosehulman.raft.State.Index
-import edu.rosehulman.raft.State.Term
+import edu.rosehulman.raft.State.{LogEntry, Index, RaftId, Term}
 
 case class AppendEntriesRequest(
   term: Term,
-  leaderId: CandidateId,
+  leaderId: RaftId,
   prevLogIndex: Index,
   prevLogTerm: Index,
-  entries: Array[String]
+  entries: Array[LogEntry]
 )

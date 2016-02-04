@@ -1,12 +1,10 @@
 package edu.rosehulman.raft.messages
 
-import edu.rosehulman.raft.State.CandidateId
-import edu.rosehulman.raft.State.Index
-import edu.rosehulman.raft.State.Term
+import edu.rosehulman.raft.State.{RaftId, Index, Term}
 
 final case class RequestVoteRequest(
   term: Term,
-  candidateId: CandidateId,
+  candidateId: RaftId,
   lastLogIndex: Index,
   lastLogTerm: Index
 )
