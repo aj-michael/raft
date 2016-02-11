@@ -20,21 +20,30 @@ class DistributedMap[T] (raftWorkerPaths: List[String]) extends scala.collection
   implicit val timeout = Timeout(10.seconds)
 
   override def +=(kv: (String, T)) = {
+    val request = CommandRequest.put(kv._1, kv._2)
     breakable {
       workers.foreach { a =>
-        val future = a ? CommandRequest.put(kv._1, kv._2)
+        val future = a ? request
         try
           Await.result(future, timeout.duration) match {
             case FailedCommandResponse(leaderId) =>
               if (leaderId.isDefined) {
                 val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
+                try
+                  Await.result(ref ? request, timeout.duration) match {
+                    case FailedCommandResponse(leaderId) =>
+                      throw new RuntimeException("Leader is down, all hope is lost")
+                    case CommandResponse(value) =>
+                      log.info("Command += returned value: " + value)
+                      break
+                  }
               }
             case CommandResponse(value) =>
               log.info("Command += returned value: " + value)
               break
           }
         catch {
-          case TimeoutException => log.warning("Worker " + a + " is not responding")
+          case e: TimeoutException => log.warning("Worker " + a + " is not responding")
         }
       }
     }
@@ -42,17 +51,68 @@ class DistributedMap[T] (raftWorkerPaths: List[String]) extends scala.collection
   }
 
   override def -=(key: String) = {
-    workers.foreach { a =>
-      a ! CommandRequest.delete(key)
+    val request = CommandRequest.delete(key)
+    breakable {
+      workers.foreach { a =>
+        val future = a ? request
+        try
+          Await.result(future, timeout.duration) match {
+            case FailedCommandResponse(leaderId) =>
+              if (leaderId.isDefined) {
+                val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
+                try
+                  Await.result(ref ? request, timeout.duration) match {
+                    case FailedCommandResponse(leaderId) =>
+                      throw new RuntimeException("Leader is down, all hope is lost")
+                    case CommandResponse(value) =>
+                      log.info("Command -= returned value: " + value)
+                      break
+                  }
+              }
+            case CommandResponse(value) =>
+              log.info("Command -= returned value: " + value)
+              break
+          }
+        catch {
+          case e: TimeoutException => log.warning("Worker " + a + " is not responding")
+        }
+      }
     }
     this
   }
 
   override def get(key: String) = {
-    workers.foreach { a =>
-      a ! CommandRequest.get(key)
+    val request = CommandRequest.get(key)
+    var returnValue: Option[T] = Option.empty
+    breakable {
+      workers.foreach { a =>
+        val future = a ? request
+        try
+          Await.result(future, timeout.duration) match {
+            case FailedCommandResponse(leaderId) =>
+              if (leaderId.isDefined) {
+                val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
+                try
+                  Await.result(ref ? request, timeout.duration) match {
+                    case FailedCommandResponse(leaderId) =>
+                      throw new RuntimeException("Leader is down, all hope is lost")
+                    case CommandResponse(value: T) =>
+                      log.info("Command get returned value: " + value)
+                      returnValue = Option(value)
+                      break
+                  }
+              }
+            case CommandResponse(value: T) =>
+              log.info("Command get returned value: " + value)
+              returnValue = Option(value)
+              break
+          }
+        catch {
+          case e: TimeoutException => log.warning("Worker " + a + " is not responding")
+        }
+      }
     }
-    Option.empty
+    returnValue
   }
 
   override def iterator = {
