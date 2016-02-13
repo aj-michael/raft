@@ -29,14 +29,13 @@ class DistributedMap[T] (raftWorkerPaths: List[String]) extends scala.collection
             case FailedCommandResponse(leaderId) =>
               if (leaderId.isDefined) {
                 val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
-                try
-                  Await.result(ref ? request, timeout.duration) match {
-                    case FailedCommandResponse(leaderId) =>
-                      throw new RuntimeException("Leader is down, all hope is lost")
-                    case CommandResponse(value) =>
-                      log.info("Command += returned value: " + value)
-                      break
-                  }
+                Await.result(ref ? request, timeout.duration) match {
+                  case FailedCommandResponse(leaderId) =>
+                    throw new RuntimeException("Leader is down, all hope is lost")
+                  case CommandResponse(value) =>
+                    log.info("Command += returned value: " + value)
+                    break
+                }
               }
             case CommandResponse(value) =>
               log.info("Command += returned value: " + value)
@@ -60,14 +59,13 @@ class DistributedMap[T] (raftWorkerPaths: List[String]) extends scala.collection
             case FailedCommandResponse(leaderId) =>
               if (leaderId.isDefined) {
                 val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
-                try
-                  Await.result(ref ? request, timeout.duration) match {
-                    case FailedCommandResponse(leaderId) =>
-                      throw new RuntimeException("Leader is down, all hope is lost")
-                    case CommandResponse(value) =>
-                      log.info("Command -= returned value: " + value)
-                      break
-                  }
+                Await.result(ref ? request, timeout.duration) match {
+                  case FailedCommandResponse(leaderId) =>
+                    throw new RuntimeException("Leader is down, all hope is lost")
+                  case CommandResponse(value) =>
+                    log.info("Command -= returned value: " + value)
+                    break
+                }
               }
             case CommandResponse(value) =>
               log.info("Command -= returned value: " + value)
@@ -92,15 +90,14 @@ class DistributedMap[T] (raftWorkerPaths: List[String]) extends scala.collection
             case FailedCommandResponse(leaderId) =>
               if (leaderId.isDefined) {
                 val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
-                try
-                  Await.result(ref ? request, timeout.duration) match {
-                    case FailedCommandResponse(leaderId) =>
-                      throw new RuntimeException("Leader is down, all hope is lost")
-                    case CommandResponse(value: T) =>
-                      log.info("Command get returned value: " + value)
-                      returnValue = Option(value)
-                      break
-                  }
+                Await.result(ref ? request, timeout.duration) match {
+                  case FailedCommandResponse(leaderId) =>
+                    throw new RuntimeException("Leader is down, all hope is lost")
+                  case CommandResponse(value: T) =>
+                    log.info("Command get returned value: " + value)
+                    returnValue = Option(value)
+                    break
+                }
               }
             case CommandResponse(value: T) =>
               log.info("Command get returned value: " + value)
