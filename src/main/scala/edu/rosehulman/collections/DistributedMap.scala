@@ -19,34 +19,32 @@ class DistributedMap[T] (raftWorkerPaths: List[String]) extends scala.collection
   val workers: List[ActorSelection] = raftWorkerPaths.map(system.actorSelection(_))
   implicit val timeout = Timeout(10.seconds)
 
-  override def +=(kv: (String, T)) = {
+  override def +=(kv: (String, T)): this.type = {
     val request = CommandRequest.put(kv._1, kv._2)
-    breakable {
-      workers.foreach { a =>
-        val future = a ? request
-        try
-          Await.result(future, timeout.duration) match {
-            case FailedCommandResponse(leaderId) =>
-              if (leaderId.isDefined) {
-                val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
-                Await.result(ref ? request, timeout.duration) match {
-                  case FailedCommandResponse(leaderId) =>
-                    throw new RuntimeException("Leader is down, all hope is lost")
-                  case CommandResponse(value) =>
-                    log.info("Command += returned value: " + value)
-                    break
-                }
+    workers.foreach { a =>
+      val future = a ? request
+      try
+        Await.result(future, timeout.duration) match {
+          case FailedCommandResponse(leaderId) =>
+            if (leaderId.isDefined) {
+              val ref = system.actorSelection(RootActorPath(leaderId.get) / "user" / "worker")
+              Await.result(ref ? request, timeout.duration) match {
+                case FailedCommandResponse(leaderId) =>
+                  throw new RuntimeException("Leader is down, all hope is lost: " + leaderId)
+                case CommandResponse(value) =>
+                  log.info("Command += returned value: " + value)
+                  return this
               }
-            case CommandResponse(value) =>
-              log.info("Command += returned value: " + value)
-              break
-          }
-        catch {
-          case e: TimeoutException => log.warning("Worker " + a + " is not responding")
+            }
+          case CommandResponse(value) =>
+            log.info("Command += returned value: " + value)
+            return this
         }
+      catch {
+        case e: TimeoutException => log.warning("Worker " + a + " is not responding")
       }
     }
-    this
+    return this
   }
 
   override def -=(key: String) = {

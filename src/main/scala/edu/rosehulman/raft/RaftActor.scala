@@ -100,9 +100,10 @@ class RaftActor(clusterSize: Int) extends Actor with LoggingFSM[Role, State] {
       }
     case Event(CommandRequest(entry), s: Leader) =>
       val (result, newData) = entry(s.data)
-      log.info("Applied " + entry + ", data is now " + newData)
+      log.info("Applied " + entry + ", got result " + result + ", data is now " + newData)
       sender ! CommandResponse(result)
-      stay
+      s.peers.foreach(actorFor(_) ! AppendEntriesRequest(s.currentTerm, s.id, s.lastApplied, s.currentTerm, Array(entry), s.commitIndex))
+      stay using s.addLeaderEntry(entry)
   }
 
   whenUnhandled {
@@ -112,7 +113,7 @@ class RaftActor(clusterSize: Int) extends Actor with LoggingFSM[Role, State] {
       sender ! FailedCommandResponse(s.leaderId)
       stay
     case Event(e, s) =>
-      log.warning("Received unhandled request {}", e)
+      log.warning("Received unhandled request {} as {} with {}", e, stateName, stateData.getClass)
       stay
   }
 

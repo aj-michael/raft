@@ -1,7 +1,7 @@
 package edu.rosehulman.raft
 
 import akka.actor.Address
-import edu.rosehulman.raft.State.{Follower, RaftId}
+import edu.rosehulman.raft.State.{Leader, Follower, RaftId}
 
 sealed trait State {
   val id: RaftId
@@ -30,10 +30,13 @@ sealed trait RaftState extends State {
   val leaderId: Option[RaftId]
 
   def addEntry(entry: LogEntry) = Follower(currentTerm, votedFor,
-    log + (lastApplied + 1 -> entry), commitIndex, lastApplied + 1, id, peers, data, leaderId)
+    log + (lastApplied + 1 -> entry), commitIndex + 1, lastApplied + 1, id, peers, entry(data)._2, leaderId)
 
   def addEntry(entry: Option[LogEntry], leaderId: Option[RaftId]): Follower =
     if (entry.isDefined) addEntry(entry.get) else Follower.create(this, leaderId)
+
+  def addLeaderEntry(entry: LogEntry) = Leader(currentTerm, votedFor,
+    log + (lastApplied + 1 -> entry), commitIndex + 1, lastApplied + 1, id, peers, entry(data)._2, leaderId)
 }
 
 object State {
